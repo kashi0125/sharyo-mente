@@ -1,6 +1,7 @@
 {
   "name": "車両メンテナンス記録",
   "short_name": "メンテ記録",
+  "id": "/sharyo-mente/",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
