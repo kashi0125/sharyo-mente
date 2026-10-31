@@ -1,0 +1,458 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>車両メンテナンス記録</title>
+<meta name="theme-color" content="#1f6f5c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="メンテ記録">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<style>
+:root{
+  --bg:#f4f5f2;--card:#fff;--ink:#1d2321;--sub:#66706c;--line:#e2e5e1;
+  --accent:#1f6f5c;--accent-ink:#fff;--warn:#b7791f;--warn-bg:#fdf3dc;--bad:#c0392b;--bad-bg:#fbe5e2;--ok-bg:#e4f2ec;
+  --radius:14px;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#141816;--card:#1e2421;--ink:#e8ece9;--sub:#9aa5a0;--line:#2e3632;
+  --accent:#4fb393;--accent-ink:#0f1412;--warn:#e0a64a;--warn-bg:#3a2f18;--bad:#ef6f61;--bad-bg:#3d1f1c;--ok-bg:#1d3a30;}
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;font-size:16px;line-height:1.5}
+header{position:sticky;top:0;z-index:5;background:var(--accent);color:var(--accent-ink);
+  padding:calc(10px + env(safe-area-inset-top)) 16px 10px;display:flex;align-items:center;gap:10px}
+header h1{font-size:18px;margin:0;flex:1}
+header button{background:transparent;border:1px solid currentColor;color:inherit;border-radius:999px;padding:4px 12px;font-size:13px}
+main{max-width:720px;margin:0 auto;padding:16px 16px 110px}
+.banner{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:13px;margin-bottom:14px}
+h2{font-size:15px;color:var(--sub);margin:22px 0 8px;font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:10px}
+.vcard{display:flex;gap:12px;align-items:center;cursor:pointer}
+.vicon{font-size:30px;width:48px;height:48px;display:grid;place-items:center;background:var(--ok-bg);border-radius:12px;flex:none}
+.vmain{flex:1;min-width:0}
+.vname{font-weight:700;font-size:17px}
+.vsub{color:var(--sub);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.badge{display:inline-block;white-space:nowrap;flex:none;font-size:12px;font-weight:700;border-radius:999px;padding:2px 9px}
+.b1{background:var(--warn-bg);color:var(--warn)}.b2{background:var(--bad-bg);color:var(--bad)}.b0{background:var(--ok-bg);color:var(--accent)}
+.due{display:flex;justify-content:space-between;gap:8px;align-items:center;padding:10px 0;border-top:1px solid var(--line)}
+.due:first-child{border-top:0;padding-top:0}.due:last-child{padding-bottom:0}
+.due .t{font-weight:600}.due .s{font-size:13px;color:var(--sub)}
+.stats{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center}
+.stat b{display:block;font-size:17px}.stat span{font-size:12px;color:var(--sub)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding-bottom:4px;margin-bottom:8px}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:5px 12px;font-size:13px}
+.chip.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.rec{cursor:pointer}
+.rec .top{display:flex;justify-content:space-between;gap:8px}
+.rec .cat{font-weight:700}.rec .date{color:var(--sub);font-size:13px}
+.rec .meta{font-size:13px;color:var(--sub);margin-top:2px}
+.rec .memo{font-size:14px;margin-top:6px;white-space:pre-wrap}
+.memo-box{white-space:pre-wrap;font-size:14px}
+.row{display:flex;gap:8px;align-items:center}
+.back{background:none;border:0;color:var(--accent);font-size:15px;padding:0;margin-bottom:8px}
+.btn{border:0;border-radius:12px;padding:12px 16px;font-size:15px;font-weight:600;background:var(--accent);color:var(--accent-ink);cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.btn.danger{background:transparent;color:var(--bad);border:1px solid var(--bad)}
+.btn.small{padding:6px 12px;font-size:13px;border-radius:10px}
+.fab{position:fixed;right:18px;bottom:calc(20px + env(safe-area-inset-bottom));border-radius:999px;padding:14px 22px;box-shadow:0 6px 18px rgba(0,0,0,.2);z-index:4}
+.empty{text-align:center;color:var(--sub);padding:30px 10px}
+.center{text-align:center;padding:60px 16px}
+dialog{border:0;border-radius:18px;padding:0;width:min(560px,94vw);max-height:90vh;background:var(--card);color:var(--ink)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog form{padding:18px;overflow:auto;max-height:90vh}
+dialog h3{margin:0 0 12px;font-size:18px}
+label{display:block;font-size:13px;color:var(--sub);margin:10px 0 4px}
+input,select,textarea{width:100%;font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+textarea{min-height:70px;resize:vertical}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
+.grid2.shopcost{grid-template-columns:1fr 7.5em}
+.next{background:var(--ok-bg);border-radius:12px;padding:4px 12px 12px;margin-top:12px}
+.hint{font-size:12px;color:var(--sub);margin-top:4px}
+.actions{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
+.actions .sp{flex:1}
+.seg{display:flex;gap:6px}.seg label{flex:1;margin:0}
+.seg input{display:none}
+.seg span{display:block;text-align:center;border:1px solid var(--line);border-radius:10px;padding:9px;color:var(--ink);font-size:15px}
+.seg input:checked+span{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.menu{display:flex;gap:8px;flex-wrap:wrap;margin-top:24px}
+</style>
+</head>
+<body>
+<header>
+  <h1>🔧 車両メンテナンス記録</h1>
+  <span id="who" style="font-size:12px;opacity:.85"></span>
+  <button id="logoutBtn" hidden>ログアウト</button>
+</header>
+<main id="app"><div class="center">読み込み中…</div></main>
+<button class="btn fab" id="fab" hidden>＋ 記録</button>
+
+<!-- 車両フォーム -->
+<dialog id="vDlg"><form id="vForm" method="dialog">
+  <h3 id="vTitle">車両を追加</h3>
+  <div class="seg">
+    <label><input type="radio" name="type" value="car" checked><span>🚗 車</span></label>
+    <label><input type="radio" name="type" value="bike"><span>🏍️ バイク</span></label>
+  </div>
+  <label>名前（呼び名）</label><input name="name" required placeholder="例：プリウス、CB400">
+  <div class="grid2">
+    <div><label>メーカー・車種</label><input name="model" placeholder="例：トヨタ ZVW30"></div>
+    <div><label>ナンバー</label><input name="plate" placeholder="例：なにわ 300 あ 12-34"></div>
+  </div>
+  <label>年式・購入日など</label><input name="year" placeholder="例：2015年式">
+  <div class="grid2">
+    <div><label>オイル交換の目安（km）</label><input name="oilKm" type="number" inputmode="numeric" min="0"></div>
+    <div><label>オイル交換の目安（か月）</label><input name="oilMonths" type="number" inputmode="numeric" min="0"></div>
+  </div>
+  <p class="hint">オイル交換を記録するとき、ここの目安から「次回」を自動で入れます。</p>
+  <label>車両メモ</label><textarea name="memo" placeholder="オイルの銘柄・量、タイヤサイズ、よく行くお店など"></textarea>
+  <div class="actions">
+    <button type="button" class="btn danger small" id="vDel" hidden>削除</button>
+    <span class="sp"></span>
+    <button type="button" class="btn ghost" data-close>キャンセル</button>
+    <button type="submit" class="btn">保存</button>
+  </div>
+</form></dialog>
+
+<!-- 記録フォーム -->
+<dialog id="rDlg"><form id="rForm" method="dialog">
+  <h3 id="rTitle">記録を追加</h3>
+  <label>車両</label><select name="vehicleId" required></select>
+  <div class="grid2">
+    <div><label>日付</label><input name="date" type="date" required></div>
+    <div><label>走行距離（km）</label><input name="odo" type="number" inputmode="numeric" min="0"></div>
+  </div>
+  <label>種類</label><select name="category" required></select>
+  <label>内容</label><input name="title" placeholder="例：5W-30 3.5L、前後パッド交換">
+  <div class="grid2 shopcost">
+    <div><label>お店・作業者</label><input name="shop" placeholder="例：自分、〇〇オート"></div>
+    <div><label>費用（円）</label><input name="cost" type="number" inputmode="numeric" min="0"></div>
+  </div>
+  <label>メモ</label><textarea name="memo"></textarea>
+  <div class="next">
+    <label>次回の目安（お知らせに表示）</label>
+    <div class="grid2">
+      <div><label>次回 km</label><input name="nextKm" type="number" inputmode="numeric" min="0"></div>
+      <div><label>次回 日付</label><input name="nextDate" type="date"></div>
+    </div>
+    <p class="hint" id="nextHint"></p>
+  </div>
+  <div class="actions">
+    <button type="button" class="btn danger small" id="rDel" hidden>削除</button>
+    <span class="sp"></span>
+    <button type="button" class="btn ghost" data-close>キャンセル</button>
+    <button type="submit" class="btn">保存</button>
+  </div>
+</form></dialog>
+
+<script type="module">
+// ====== Firebase 設定（Firebaseコンソール → プロジェクトの設定 → マイアプリ からコピー）======
+const firebaseConfig = {
+  apiKey: "AIzaSyDLSnmw5OmUZB360C0IMB_VsBhwtMxcQGs",
+  authDomain: "sharyo-mente.firebaseapp.com",
+  projectId: "sharyo-mente",
+  storageBucket: "sharyo-mente.firebasestorage.app",
+  messagingSenderId: "412469850432",
+  appId: "1:412469850432:web:07067c3f9288a309ba0aa5"
+};
+// 設定が未入力のときはお試しモード（データは保存されません）で動きます
+const DEMO = firebaseConfig.apiKey.startsWith("YOUR");
+
+const CATS = ["オイル交換","オイルフィルター","タイヤ","バッテリー","ブレーキ","チェーン・駆動系","冷却水・その他液類","エアクリーナー・プラグ","点検","車検","修理","その他"];
+const SOON_DAYS = 30;
+
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const num = v => (v === "" || v == null || isNaN(+v)) ? null : +v;
+const fmt = n => (n ?? 0).toLocaleString("ja-JP");
+const todayStr = () => { const d = new Date(); d.setMinutes(d.getMinutes() - d.getTimezoneOffset()); return d.toISOString().slice(0,10); };
+const addMonths = (ds, m) => { const [y,mo,d] = ds.split("-").map(Number); const t = new Date(y, mo-1+m, d); return `${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,"0")}-${String(t.getDate()).padStart(2,"0")}`; };
+const daysUntil = ds => Math.round((new Date(ds+"T00:00") - new Date(todayStr()+"T00:00")) / 864e5);
+const jpDate = ds => ds ? ds.replace(/^(\d+)-0?(\d+)-0?(\d+)$/, "$1/$2/$3") : "";
+
+const state = { user:null, vehicles:[], records:[], view:{name:"home"}, filter:"すべて" };
+let store;
+
+// ====== データ保存（Firebase / お試し）======
+async function initFirebase(){
+  const base = "https://www.gstatic.com/firebasejs/10.12.2/";
+  const { initializeApp } = await import(base+"firebase-app.js");
+  const A = await import(base+"firebase-auth.js");
+  const F = await import(base+"firebase-firestore.js");
+  const app = initializeApp(firebaseConfig);
+  const auth = A.getAuth(app), db = F.getFirestore(app);
+  let unsubs = [];
+  const col = name => F.collection(db, "users", state.user.uid, name);
+  store = {
+    login: () => A.signInWithPopup(auth, new A.GoogleAuthProvider()),
+    logout: () => A.signOut(auth),
+    async save(name, obj){
+      const { id, ...data } = obj; data.updatedAt = F.serverTimestamp();
+      if (id) await F.setDoc(F.doc(col(name), id), data, { merge:true });
+      else { data.createdAt = F.serverTimestamp(); await F.addDoc(col(name), data); }
+    },
+    async removeVehicle(id){
+      const b = F.writeBatch(db);
+      state.records.filter(r => r.vehicleId === id).forEach(r => b.delete(F.doc(col("records"), r.id)));
+      b.delete(F.doc(col("vehicles"), id));
+      await b.commit();
+    },
+    removeRecord: id => F.deleteDoc(F.doc(col("records"), id)),
+  };
+  A.onAuthStateChanged(auth, user => {
+    unsubs.forEach(u => u()); unsubs = [];
+    state.user = user; state.vehicles = []; state.records = [];
+    if (user) {
+      unsubs.push(F.onSnapshot(col("vehicles"), s => { state.vehicles = s.docs.map(d => ({ id:d.id, ...d.data() })); render(); }));
+      unsubs.push(F.onSnapshot(col("records"),  s => { state.records  = s.docs.map(d => ({ id:d.id, ...d.data() })); render(); }));
+    }
+    render();
+  });
+}
+
+function initDemo(){
+  let seq = 100; const t = todayStr();
+  state.user = { displayName:"お試しモード", uid:"demo" };
+  state.vehicles = [
+    { id:"v1", type:"car", name:"ワゴンR", model:"スズキ MH55S", plate:"", oilKm:5000, oilMonths:6, memo:"オイル 0W-20 約2.7L\nタイヤ 155/65R14" },
+    { id:"v2", type:"bike", name:"CB400SF", model:"ホンダ NC42", plate:"", oilKm:3000, oilMonths:6, memo:"" },
+  ];
+  state.records = [
+    { id:"r1", vehicleId:"v1", date:addMonths(t,-5), odo:43500, category:"オイル交換", title:"0W-20 2.7L", shop:"自分", cost:2800, nextKm:48500, nextDate:addMonths(t,1), memo:"" },
+    { id:"r2", vehicleId:"v1", date:addMonths(t,-14), odo:38000, category:"車検", title:"継続車検", shop:"〇〇モータース", cost:68000, nextDate:addMonths(t,10), memo:"ブレーキフルード交換込み" },
+    { id:"r3", vehicleId:"v2", date:addMonths(t,-7), odo:18000, category:"オイル交換", title:"10W-40 3L", shop:"自分", cost:3500, nextKm:21000, nextDate:addMonths(t,-1), memo:"" },
+    { id:"r4", vehicleId:"v2", date:addMonths(t,-2), odo:20900, category:"チェーン・駆動系", title:"チェーン清掃・注油", shop:"自分", cost:0, memo:"そろそろ張り調整" },
+  ];
+  store = {
+    login(){}, logout(){},
+    async save(name, obj){
+      const list = state[name];
+      if (obj.id) Object.assign(list.find(x => x.id === obj.id), obj);
+      else list.push({ ...obj, id:"x"+(++seq) });
+      render();
+    },
+    async removeVehicle(id){ state.vehicles = state.vehicles.filter(v => v.id !== id); state.records = state.records.filter(r => r.vehicleId !== id); render(); },
+    async removeRecord(id){ state.records = state.records.filter(r => r.id !== id); render(); },
+  };
+  render();
+}
+
+// ====== 計算 ======
+const vehicleRecords = vid => state.records.filter(r => r.vehicleId === vid)
+  .sort((a,b) => (b.date||"").localeCompare(a.date||"") || (b.odo||0)-(a.odo||0));
+const lastKm = vid => vehicleRecords(vid).find(r => r.odo)?.odo ?? null;
+const findV = id => state.vehicles.find(v => v.id === id);
+
+// 「もうすぐ／時期です」は日付で判定。距離は「次回は何kmで」と表示するだけ
+function dueStatus(r){
+  let level = 0; const parts = [];
+  if (r.nextKm) parts.push(`次回は ${fmt(r.nextKm)} km`);
+  if (r.nextDate) { const d = daysUntil(r.nextDate);
+    parts.push(`${jpDate(r.nextDate)}（${d < 0 ? `${-d}日 過ぎています` : d === 0 ? "今日" : `あと ${d}日`}）`);
+    level = d <= 0 ? 2 : d <= SOON_DAYS ? 1 : 0; }
+  return { level, text: parts.join("・") };
+}
+// 種類ごとに一番新しい記録の「次回」だけを見る（同じ種類で新しい記録があれば古い予定は消える）
+function dues(v){
+  const seen = new Set(), out = [];
+  for (const r of vehicleRecords(v.id)) {
+    const key = ["修理","その他"].includes(r.category) ? r.category+"|"+r.title : r.category;
+    if (seen.has(key)) continue; seen.add(key);
+    if (!r.nextKm && !r.nextDate) continue;
+    out.push({ r, v, ...dueStatus(r) });
+  }
+  return out.sort((a,b) => b.level - a.level);
+}
+const lastOf = (v, cat) => vehicleRecords(v.id).find(r => r.category === cat);
+
+// ====== 画面 ======
+function render(){
+  const app = $("#app");
+  $("#who").textContent = state.user ? (state.user.displayName || "") : "";
+  $("#logoutBtn").hidden = !state.user || DEMO;
+  $("#fab").hidden = !state.user || !state.vehicles.length;
+  if (!state.user) {
+    app.innerHTML = `<div class="center"><p style="font-size:44px;margin:0">🚗🏍️</p>
+      <p>車・バイクのオイル交換や修理の記録を<br>スマホとPCで共有して残せます。</p>
+      <button class="btn" id="loginBtn">Googleでログイン</button></div>`;
+    $("#loginBtn").onclick = () => store.login().catch(e => alert("ログインできませんでした：" + e.message));
+    return;
+  }
+  const banner = DEMO ? `<div class="banner">お試しモードです。index.html の firebaseConfig を入れると保存・同期されます。</div>` : "";
+  if (state.view.name === "vehicle" && findV(state.view.id)) return app.innerHTML = banner + vehicleView(findV(state.view.id)), bindVehicleView();
+  state.view = { name:"home" };
+  app.innerHTML = banner + homeView(); bindHome();
+}
+
+function dueRow(d, showVehicle){
+  const cls = ["b0","b1","b2"][d.level], label = ["予定","もうすぐ","時期です"][d.level];
+  return `<div class="due rec" data-rid="${d.r.id}">
+    <div><div class="t">${showVehicle ? esc(d.v.name)+"：" : ""}${esc(d.r.category)}${d.r.title && ["修理","その他"].includes(d.r.category) ? "（"+esc(d.r.title)+"）" : ""}</div>
+    <div class="s">${esc(d.text)}</div></div>
+    <span class="badge ${cls}">${label}</span></div>`;
+}
+
+function homeView(){
+  if (!state.vehicles.length) return `<div class="empty"><p>まだ車両がありません。</p><button class="btn" data-addv>＋ 車両を追加</button></div>`;
+  const alerts = state.vehicles.flatMap(v => dues(v)).filter(d => d.level > 0).sort((a,b) => b.level - a.level);
+  const cards = state.vehicles.slice().sort((a,b) => (a.name||"").localeCompare(b.name||"","ja")).map(v => {
+    const ds = dues(v), worst = Math.max(0, ...ds.map(d => d.level)), oil = lastOf(v, "オイル交換");
+    return `<div class="card vcard" data-vid="${v.id}">
+      <div class="vicon">${v.type === "bike" ? "🏍️" : "🚗"}</div>
+      <div class="vmain"><div class="vname">${esc(v.name)}</div>
+        <div class="vsub">${esc([v.model, v.plate].filter(Boolean).join("・")) || "&nbsp;"}</div>
+        <div class="vsub">前回オイル：${oil ? jpDate(oil.date)+(oil.odo ? "（"+fmt(oil.odo)+" km）" : "") : "記録なし"}</div></div>
+      ${worst ? `<span class="badge ${worst===2?"b2":"b1"}">${worst===2?"要交換":"もうすぐ"}</span>` : ""}
+    </div>`;
+  }).join("");
+  return `${alerts.length ? `<h2>🔔 お知らせ</h2><div class="card">${alerts.map(d => dueRow(d, true)).join("")}</div>` : ""}
+    <h2>車両</h2>${cards}
+    <div class="menu"><button class="btn ghost small" data-addv>＋ 車両を追加</button>
+    <button class="btn ghost small" id="csvBtn">CSVで書き出し</button></div>`;
+}
+function bindHome(){
+  document.querySelectorAll("[data-addv]").forEach(b => b.onclick = () => openVehicle());
+  document.querySelectorAll("[data-vid]").forEach(c => c.onclick = () => { state.view = { name:"vehicle", id:c.dataset.vid }; state.filter = "すべて"; render(); scrollTo(0,0); });
+  document.querySelectorAll("[data-rid]").forEach(c => c.onclick = () => openRecord(state.records.find(r => r.id === c.dataset.rid)));
+  const csv = $("#csvBtn"); if (csv) csv.onclick = exportCsv;
+}
+
+function vehicleView(v){
+  const recs = vehicleRecords(v.id), ds = dues(v);
+  const total = recs.reduce((s,r) => s + (r.cost||0), 0);
+  const cats = ["すべて", ...CATS.filter(c => recs.some(r => r.category === c))];
+  const shown = state.filter === "すべて" ? recs : recs.filter(r => r.category === state.filter);
+  return `<button class="back" id="backBtn">‹ 一覧へ</button>
+    <div class="row" style="margin-bottom:12px"><div class="vicon">${v.type === "bike" ? "🏍️" : "🚗"}</div>
+      <div class="vmain"><div class="vname">${esc(v.name)}</div><div class="vsub">${esc([v.model, v.plate, v.year].filter(Boolean).join("・"))}</div></div>
+      <button class="btn ghost small" id="editV">編集</button></div>
+    <div class="stats"><div class="stat"><b>${fmt(total)}</b><span>累計費用（円）</span></div>
+      <div class="stat"><b>${recs.length}</b><span>記録</span></div></div>
+    ${ds.length ? `<h2>次回の予定</h2><div class="card">${ds.map(d => dueRow(d, false)).join("")}</div>` : ""}
+    ${v.memo ? `<h2>車両メモ</h2><div class="card memo-box">${esc(v.memo)}</div>` : ""}
+    <h2>履歴</h2>
+    ${cats.length > 2 ? `<div class="chips">${cats.map(c => `<button class="chip ${c===state.filter?"on":""}" data-f="${esc(c)}">${esc(c)}</button>`).join("")}</div>` : ""}
+    ${shown.length ? shown.map(r => `<div class="card rec" data-rid="${r.id}">
+      <div class="top"><span class="cat">${esc(r.category)}</span><span class="date">${jpDate(r.date)}</span></div>
+      <div class="meta">${[r.odo ? fmt(r.odo)+" km" : "", r.title, r.shop, r.cost ? "¥"+fmt(r.cost) : ""].filter(Boolean).map(esc).join("　")}</div>
+      ${r.memo ? `<div class="memo">${esc(r.memo)}</div>` : ""}
+      ${r.nextKm || r.nextDate ? `<div class="meta">次回：${[r.nextKm ? fmt(r.nextKm)+" km" : "", jpDate(r.nextDate)].filter(Boolean).join(" / ")}</div>` : ""}
+    </div>`).join("") : `<div class="empty">まだ記録がありません。</div>`}`;
+}
+function bindVehicleView(){
+  const v = findV(state.view.id);
+  $("#backBtn").onclick = () => { state.view = { name:"home" }; render(); };
+  $("#editV").onclick = () => openVehicle(v);
+  document.querySelectorAll("[data-f]").forEach(b => b.onclick = () => { state.filter = b.dataset.f; render(); });
+  document.querySelectorAll("[data-rid]").forEach(c => c.onclick = () => openRecord(state.records.find(r => r.id === c.dataset.rid)));
+}
+
+// ====== 車両フォーム ======
+const vForm = $("#vForm"), vDlg = $("#vDlg");
+let editingV = null;
+function openVehicle(v){
+  editingV = v || null; vForm.reset();
+  $("#vTitle").textContent = v ? "車両を編集" : "車両を追加"; $("#vDel").hidden = !v;
+  const d = v || { type:"car", oilKm:5000, oilMonths:6 };
+  for (const el of vForm.elements) if (el.name) {
+    if (el.type === "radio") el.checked = el.value === (d.type || "car"); else el.value = d[el.name] ?? "";
+  }
+  vDlg.showModal();
+}
+vForm.addEventListener("change", e => {
+  if (e.target.name === "type" && !editingV) vForm.oilKm.value = e.target.value === "bike" ? 3000 : 5000;
+});
+vForm.onsubmit = async e => {
+  e.preventDefault();
+  const f = vForm.elements;
+  const obj = { type:f.type.value, name:f.name.value.trim(), model:f.model.value.trim(), plate:f.plate.value.trim(), year:f.year.value.trim(),
+    oilKm:num(f.oilKm.value), oilMonths:num(f.oilMonths.value), memo:f.memo.value };
+  if (editingV) obj.id = editingV.id;
+  try { await store.save("vehicles", obj); vDlg.close(); } catch(err) { alert("保存できませんでした：" + err.message); }
+};
+$("#vDel").onclick = async () => {
+  const n = vehicleRecords(editingV.id).length;
+  if (!confirm(`「${editingV.name}」を削除しますか？\n記録 ${n} 件もいっしょに消えます。`)) return;
+  await store.removeVehicle(editingV.id); vDlg.close(); state.view = { name:"home" }; render();
+};
+
+// ====== 記録フォーム ======
+const rForm = $("#rForm"), rDlg = $("#rDlg");
+let editingR = null, nextAuto = true;
+rForm.category.innerHTML = CATS.map(c => `<option>${c}</option>`).join("");
+function openRecord(r){
+  editingR = r || null; rForm.reset();
+  rForm.vehicleId.innerHTML = state.vehicles.map(v => `<option value="${v.id}">${v.type==="bike"?"🏍️":"🚗"} ${esc(v.name)}</option>`).join("");
+  $("#rTitle").textContent = r ? "記録を編集" : "記録を追加"; $("#rDel").hidden = !r;
+  const vid = r?.vehicleId || (state.view.name === "vehicle" ? state.view.id : state.vehicles[0]?.id);
+  const d = r || { vehicleId:vid, date:todayStr(), category:"オイル交換" };
+  for (const el of rForm.elements) if (el.name) el.value = d[el.name] ?? "";
+  setOdoHint(); nextAuto = !r; if (!r) autoNext();
+  rDlg.showModal();
+}
+// 走行距離欄に、その車両で最後に記録した距離を薄く表示
+function setOdoHint(){
+  const km = lastKm(rForm.vehicleId.value);
+  rForm.odo.placeholder = km ? `前回 ${fmt(km)} km` : "";
+}
+// 種類ごとの「次回」自動入力
+function autoNext(){
+  if (!nextAuto) return;
+  const f = rForm.elements, v = findV(f.vehicleId.value), odo = num(f.odo.value), date = f.date.value || todayStr();
+  let km = null, mo = null;
+  switch (f.category.value) {
+    case "オイル交換": km = v?.oilKm; mo = v?.oilMonths; break;
+    case "オイルフィルター": km = v?.oilKm ? v.oilKm*2 : null; mo = v?.oilMonths ? v.oilMonths*2 : null; break;
+    case "点検": mo = 12; break;
+    case "車検": mo = 24; break;
+  }
+  f.nextKm.value = km && odo != null ? odo + km : "";
+  f.nextDate.value = mo ? addMonths(date, mo) : "";
+  $("#nextHint").textContent = (km || mo) ? "目安から自動で入れました。変更できます。" : "必要なら入力してください。";
+}
+rForm.addEventListener("input", e => {
+  if (["nextKm","nextDate"].includes(e.target.name)) { nextAuto = false; $("#nextHint").textContent = ""; }
+  else if (["category","odo","date","vehicleId"].includes(e.target.name)) { if (e.target.name === "vehicleId") setOdoHint(); autoNext(); }
+});
+rForm.onsubmit = async e => {
+  e.preventDefault();
+  const f = rForm.elements;
+  const obj = { vehicleId:f.vehicleId.value, date:f.date.value, odo:num(f.odo.value), category:f.category.value,
+    title:f.title.value.trim(), shop:f.shop.value.trim(), cost:num(f.cost.value), memo:f.memo.value,
+    nextKm:num(f.nextKm.value), nextDate:f.nextDate.value || null };
+  if (editingR) obj.id = editingR.id;
+  try {
+    await store.save("records", obj);
+    rDlg.close();
+  } catch(err) { alert("保存できませんでした：" + err.message); }
+};
+$("#rDel").onclick = async () => {
+  if (!confirm("この記録を削除しますか？")) return;
+  await store.removeRecord(editingR.id); rDlg.close();
+};
+document.querySelectorAll("[data-close]").forEach(b => b.onclick = () => b.closest("dialog").close());
+
+// ====== CSV ======
+function exportCsv(){
+  const head = ["車両","日付","走行距離","種類","内容","お店","費用","次回km","次回日付","メモ"];
+  const rows = state.records.slice().sort((a,b) => (a.date||"").localeCompare(b.date||"")).map(r =>
+    [findV(r.vehicleId)?.name, r.date, r.odo, r.category, r.title, r.shop, r.cost, r.nextKm, r.nextDate, r.memo]);
+  const csv = [head, ...rows].map(row => row.map(c => `"${String(c ?? "").replace(/"/g,'""')}"`).join(",")).join("\r\n");
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob(["\ufeff"+csv], { type:"text/csv" }));
+  a.download = `メンテ記録_${todayStr()}.csv`; a.click();
+}
+
+$("#fab").onclick = () => openRecord();
+$("#logoutBtn").onclick = () => store.logout();
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+if (DEMO) initDemo(); else initFirebase().catch(e => { $("#app").innerHTML = `<div class="center">Firebaseの読み込みに失敗しました：${esc(e.message)}</div>`; });
+</script>
+</body>
+</html>
