@@ -120,6 +120,10 @@ textarea{min-height:70px;resize:vertical}
     <div><label>メーカー</label><input name="maker" placeholder="例：ヤマハ"></div>
     <div><label>車種</label><input name="model" placeholder="例：マジェスティS"></div>
   </div>
+  <div class="grid2">
+    <div><label>型番</label><input name="modelCode" placeholder="例：EBD-S201P"></div>
+    <div><label>車体番号</label><input name="vin" placeholder="例：S201P-0114505"></div>
+  </div>
   <label>ナンバー</label><input name="plate" placeholder="例：なにわ 300 あ 12-34">
   <div class="grid2">
     <div><label>年式</label><input name="year" placeholder="例：2015年式"></div>
@@ -183,7 +187,7 @@ const firebaseConfig = {
 // 設定が未入力のときはお試しモード（データは保存されません）で動きます
 const DEMO = firebaseConfig.apiKey.startsWith("YOUR");
 
-const CATS = ["オイル交換","オイルフィルター","タイヤ","バッテリー","ブレーキ","チェーン・駆動系","冷却水・その他液類","エアクリーナー・プラグ","点検","車検","修理","その他"];
+const CATS = ["オイル交換","エレメント(オイルフィルター)","フラッシング","タイヤ","バッテリー","ブレーキ","チェーン・駆動系","冷却水・その他液類","エアクリーナー・プラグ","点検","車検","修理","その他"];
 const SOON_DAYS = 30;
 
 const $ = s => document.querySelector(s);
@@ -195,6 +199,12 @@ const addMonths = (ds, m) => { const [y,mo,d] = ds.split("-").map(Number); const
 const daysUntil = ds => Math.round((new Date(ds+"T00:00") - new Date(todayStr()+"T00:00")) / 864e5);
 const jpDate = ds => ds ? ds.replace(/^(\d+)-0?(\d+)-0?(\d+)$/, "$1/$2/$3") : "";
 
+// 以前の種類名を新しい名前にそろえる（保存済みのデータもそのまま新しい名前で表示）
+function normRec(r){
+  if (r.category === "オイルフィルター") r.category = "エレメント(オイルフィルター)";
+  if (r.category === "その他" && r.title === "フラッシング") r.category = "フラッシング";
+  return r;
+}
 const state = { user:null, vehicles:[], records:[], view:{name:"home"}, filter:"すべて" };
 let store;
 
@@ -238,7 +248,7 @@ async function initFirebase(){
     state.user = user; state.vehicles = []; state.records = [];
     if (user) {
       unsubs.push(F.onSnapshot(col("vehicles"), s => { state.vehicles = s.docs.map(d => ({ id:d.id, ...d.data() })); render(); }));
-      unsubs.push(F.onSnapshot(col("records"),  s => { state.records  = s.docs.map(d => ({ id:d.id, ...d.data() })); render(); }));
+      unsubs.push(F.onSnapshot(col("records"),  s => { state.records  = s.docs.map(d => normRec({ id:d.id, ...d.data() })); render(); }));
     }
     render();
   });
@@ -270,7 +280,8 @@ function initDemo(){
     async importAll(data){
       for (const name of ["vehicles","records"]) for (const x of data[name]) {
         const i = state[name].findIndex(y => y.id === x.id);
-        if (i >= 0) state[name][i] = { ...x }; else state[name].push({ ...x });
+        const y = name === "records" ? normRec({ ...x }) : { ...x };
+        if (i >= 0) state[name][i] = y; else state[name].push(y);
       }
       render();
     },
@@ -351,14 +362,14 @@ function homeView(){
   return `${alerts.length ? `<h2>🔔 お知らせ</h2><div class="card">${alerts.map(d => dueRow(d, true)).join("")}</div>` : ""}
     <h2>車両</h2>${cards}
     <div class="menu"><button class="btn ghost small" data-addv>＋ 車両を追加</button>
-    <button class="btn ghost small" id="csvBtn">CSVで書き出し</button>
+    <button class="btn ghost small" id="csvBtn">Excelで書き出し</button>
     <button class="btn ghost small" data-import>過去の記録を読み込む</button></div>`;
 }
 function bindHome(){
   document.querySelectorAll("[data-addv]").forEach(b => b.onclick = () => openVehicle());
   document.querySelectorAll("[data-vid]").forEach(c => c.onclick = () => { state.view = { name:"vehicle", id:c.dataset.vid }; state.filter = "すべて"; render(); scrollTo(0,0); });
   document.querySelectorAll("[data-rid]").forEach(c => c.onclick = () => openRecord(state.records.find(r => r.id === c.dataset.rid)));
-  const csv = $("#csvBtn"); if (csv) csv.onclick = exportCsv;
+  const csv = $("#csvBtn"); if (csv) csv.onclick = exportXlsx;
   document.querySelectorAll("[data-import]").forEach(b => b.onclick = () => { $("#importFile").value = ""; $("#importFile").click(); });
 }
 
@@ -372,6 +383,8 @@ function vehicleView(v){
     <div class="row" style="margin-bottom:12px">${v.photo ? "" : vIcon(v)}
       <div class="vmain"><div class="vname">${esc(v.name)}</div>
         <div class="vsub">${esc([[v.maker, v.model].filter(Boolean).join(" "), v.plate].filter(Boolean).join("・"))}</div>
+        ${v.modelCode ? `<div class="vsub">型番：${esc(v.modelCode)}</div>` : ""}
+        ${v.vin ? `<div class="vsub">車体番号：${esc(v.vin)}</div>` : ""}
         <div class="vsub">${esc([v.year, v.purchaseDate ? jpDate(v.purchaseDate) + " 購入" : ""].filter(Boolean).join("・"))}</div></div>
       <button class="btn ghost small" id="editV">編集</button></div>
     <div class="stats"><div class="stat"><b>${fmt(total)}</b><span>累計費用（円）</span></div>
@@ -410,6 +423,10 @@ function openVehicle(v){
   const d = { ...(v || { type:"car", oilKm:5000, oilMonths:6 }) };
   // 以前の「メーカー・車種」1枠のデータは、メーカー名を自動で分けて表示
   if (v && d.maker === undefined && d.model) { const m = d.model.match(MAKERS); if (m) { d.maker = m[1]; d.model = d.model.slice(m[0].length); } }
+  // 「(ハイゼット)EBD-S201P」のような車種は、車種名と型番に分けて表示
+  if (v && d.modelCode === undefined && d.model) { const m = d.model.match(/^[(（](.+?)[)）]\s*([A-Za-z0-9-]+)$/); if (m) { d.model = m[1]; d.modelCode = m[2]; } }
+  // メモに入っている「車体番号：…」の行は、車体番号の欄へ移して表示
+  if (v && d.vin === undefined && d.memo) { const m = d.memo.match(/^車体番号[：:]\s*(.+)$/m); if (m) { d.vin = m[1].trim(); d.memo = d.memo.replace(m[0], "").replace(/^\n+/, ""); } }
   setPhoto(d.photo);
   for (const el of vForm.elements) if (el.name) {
     if (el.type === "radio") el.checked = el.value === (d.type || "car"); else el.value = d[el.name] ?? "";
@@ -424,6 +441,7 @@ vForm.onsubmit = async e => {
   const f = vForm.elements;
   const obj = { type:f.type.value, name:f.name.value.trim(), maker:f.maker.value.trim(), model:f.model.value.trim(), plate:f.plate.value.trim(),
     year:f.year.value.trim(), purchaseDate:f.purchaseDate.value || null, photo:vPhoto,
+    modelCode:f.modelCode.value.trim(), vin:f.vin.value.trim(),
     oilKm:num(f.oilKm.value), oilMonths:num(f.oilMonths.value), memo:f.memo.value };
   if (editingV) obj.id = editingV.id;
   try { await store.save("vehicles", obj); vDlg.close(); } catch(err) { alert("保存できませんでした：" + err.message); }
@@ -484,7 +502,7 @@ function autoNext(){
   let km = null, mo = null;
   switch (f.category.value) {
     case "オイル交換": km = v?.oilKm; mo = v?.oilMonths; break;
-    case "オイルフィルター": km = v?.oilKm ? v.oilKm*2 : null; mo = v?.oilMonths ? v.oilMonths*2 : null; break;
+    case "エレメント(オイルフィルター)": km = v?.oilKm ? v.oilKm*2 : null; mo = v?.oilMonths ? v.oilMonths*2 : null; break;
     case "点検": mo = 12; break;
     case "車検": mo = 24; break;
   }
@@ -515,14 +533,45 @@ $("#rDel").onclick = async () => {
 document.querySelectorAll("[data-close]").forEach(b => b.onclick = () => b.closest("dialog").close());
 
 // ====== CSV ======
-function exportCsv(){
-  const head = ["車両","日付","走行距離","種類","内容","お店","費用","次回km","次回日付","メモ"];
-  const rows = state.records.slice().sort((a,b) => (a.date||"").localeCompare(b.date||"")).map(r =>
-    [findV(r.vehicleId)?.name, r.date, r.odo, r.category, r.title, r.shop, r.cost, r.nextKm, r.nextDate, r.memo]);
-  const csv = [head, ...rows].map(row => row.map(c => `"${String(c ?? "").replace(/"/g,'""')}"`).join(",")).join("\r\n");
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob(["\ufeff"+csv], { type:"text/csv" }));
-  a.download = `メンテ記録_${todayStr()}.csv`; a.click();
+// 車両ごとにワークシートを分けたExcelファイルで書き出し（SheetJSを使うときだけ読み込む）
+let xlsxLib = null;
+function loadXlsx(){
+  if (xlsxLib) return xlsxLib;
+  return xlsxLib = new Promise((ok, ng) => {
+    const sc = document.createElement("script");
+    sc.src = "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js";
+    sc.onload = () => ok(window.XLSX);
+    sc.onerror = () => { xlsxLib = null; ng(new Error("書き出しの準備ができませんでした。通信できる場所でもう一度お試しください。")); };
+    document.head.appendChild(sc);
+  });
+}
+async function exportXlsx(){
+  try {
+    const XLSX = await loadXlsx();
+    const wb = XLSX.utils.book_new(), used = new Set();
+    const vs = state.vehicles.slice().sort((a,b) => (a.name||"").localeCompare(b.name||"","ja"));
+    for (const v of vs) {
+      const recs = vehicleRecords(v.id).slice().reverse();   // 古い順
+      const info = [
+        [v.name],
+        [[v.maker, v.model].filter(Boolean).join(" "), v.modelCode ? "型番：" + v.modelCode : "", v.vin ? "車体番号：" + v.vin : "", v.plate ? "ナンバー：" + v.plate : ""].filter(Boolean),
+        [v.year, v.purchaseDate ? "購入日：" + jpDate(v.purchaseDate) : ""].filter(Boolean),
+        [],
+        ["日付","走行距離(km)","種類","内容","お店・作業者","費用(円)","次回km","次回日付","メモ"],
+      ];
+      const rows = recs.map(r => [jpDate(r.date), r.odo ?? "", r.category, r.title || "", r.shop || "", r.cost ?? "", r.nextKm ?? "", jpDate(r.nextDate), r.memo || ""]);
+      const total = recs.reduce((s,r) => s + (r.cost||0), 0);
+      const ws = XLSX.utils.aoa_to_sheet([...info, ...rows, [], ["", "", "", "", "合計", total]]);
+      ws["!cols"] = [11,12,22,34,18,10,10,11,40].map(w => ({ wch:w }));
+      // シート名は31文字まで・使えない記号を除く・重複しないように
+      let name = (v.name || "車両").replace(/[\\/?*\[\]:]/g, "").slice(0, 28) || "車両", n = 2, base = name;
+      while (used.has(name)) name = `${base}(${n++})`;
+      used.add(name);
+      XLSX.utils.book_append_sheet(wb, ws, name);
+    }
+    if (!vs.length) XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet([["車両がありません"]]), "記録");
+    XLSX.writeFile(wb, `メンテ記録_${todayStr()}.xlsx`);
+  } catch (err) { alert(err.message); }
 }
 
 // ====== 過去の記録の読み込み（変換済みJSON）======
