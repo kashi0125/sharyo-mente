@@ -97,7 +97,6 @@ textarea{min-height:70px;resize:vertical}
 </header>
 <main id="app"><div class="center">読み込み中…</div></main>
 <button class="btn fab" id="fab" hidden>＋ 記録</button>
-<input type="file" id="importFile" accept=".json,application/json" hidden>
 
 <!-- 車両フォーム -->
 <dialog id="vDlg"><form id="vForm" method="dialog">
@@ -233,15 +232,6 @@ async function initFirebase(){
       await b.commit();
     },
     removeRecord: id => F.deleteDoc(F.doc(col("records"), id)),
-    async importAll(data){
-      const items = [...data.vehicles.map(x => ["vehicles", x]), ...data.records.map(x => ["records", x])];
-      for (let i = 0; i < items.length; i += 400) {
-        const b = F.writeBatch(db);
-        for (const [name, { id, ...rest }] of items.slice(i, i + 400))
-          b.set(F.doc(col(name), id), { ...rest, updatedAt: F.serverTimestamp() });
-        await b.commit();
-      }
-    },
   };
   A.onAuthStateChanged(auth, user => {
     unsubs.forEach(u => u()); unsubs = [];
@@ -277,14 +267,6 @@ function initDemo(){
     },
     async removeVehicle(id){ state.vehicles = state.vehicles.filter(v => v.id !== id); state.records = state.records.filter(r => r.vehicleId !== id); render(); },
     async removeRecord(id){ state.records = state.records.filter(r => r.id !== id); render(); },
-    async importAll(data){
-      for (const name of ["vehicles","records"]) for (const x of data[name]) {
-        const i = state[name].findIndex(y => y.id === x.id);
-        const y = name === "records" ? normRec({ ...x }) : { ...x };
-        if (i >= 0) state[name][i] = y; else state[name].push(y);
-      }
-      render();
-    },
   };
   render();
 }
@@ -346,8 +328,7 @@ function dueRow(d, showVehicle){
 
 const vIcon = v => v.photo ? `<img class="vicon" src="${esc(v.photo)}" alt="">` : `<div class="vicon">${v.type === "bike" ? "🏍️" : "🚗"}</div>`;
 function homeView(){
-  if (!state.vehicles.length) return `<div class="empty"><p>まだ車両がありません。</p><button class="btn" data-addv>＋ 車両を追加</button>
-    <p style="margin-top:20px"><button class="btn ghost small" data-import>過去の記録を読み込む</button></p></div>`;
+  if (!state.vehicles.length) return `<div class="empty"><p>まだ車両がありません。</p><button class="btn" data-addv>＋ 車両を追加</button></div>`;
   const alerts = state.vehicles.flatMap(v => dues(v)).filter(d => d.level > 0).sort((a,b) => b.level - a.level);
   const cards = state.vehicles.slice().sort((a,b) => (a.name||"").localeCompare(b.name||"","ja")).map(v => {
     const ds = dues(v), worst = Math.max(0, ...ds.map(d => d.level)), oil = lastOf(v, "オイル交換");
@@ -362,15 +343,13 @@ function homeView(){
   return `${alerts.length ? `<h2>🔔 お知らせ</h2><div class="card">${alerts.map(d => dueRow(d, true)).join("")}</div>` : ""}
     <h2>車両</h2>${cards}
     <div class="menu"><button class="btn ghost small" data-addv>＋ 車両を追加</button>
-    <button class="btn ghost small" id="csvBtn">Excelで書き出し</button>
-    <button class="btn ghost small" data-import>過去の記録を読み込む</button></div>`;
+    <button class="btn ghost small" id="csvBtn">Excelで書き出し</button></div>`;
 }
 function bindHome(){
   document.querySelectorAll("[data-addv]").forEach(b => b.onclick = () => openVehicle());
   document.querySelectorAll("[data-vid]").forEach(c => c.onclick = () => { state.view = { name:"vehicle", id:c.dataset.vid }; state.filter = "すべて"; render(); scrollTo(0,0); });
   document.querySelectorAll("[data-rid]").forEach(c => c.onclick = () => openRecord(state.records.find(r => r.id === c.dataset.rid)));
   const csv = $("#csvBtn"); if (csv) csv.onclick = exportXlsx;
-  document.querySelectorAll("[data-import]").forEach(b => b.onclick = () => { $("#importFile").value = ""; $("#importFile").click(); });
 }
 
 function vehicleView(v){
@@ -573,19 +552,6 @@ async function exportXlsx(){
     XLSX.writeFile(wb, `メンテ記録_${todayStr()}.xlsx`);
   } catch (err) { alert(err.message); }
 }
-
-// ====== 過去の記録の読み込み（変換済みJSON）======
-$("#importFile").onchange = async e => {
-  const file = e.target.files[0]; if (!file) return;
-  try {
-    const data = JSON.parse(await file.text());
-    if (data.app !== "sharyo-mente" || !Array.isArray(data.vehicles) || !Array.isArray(data.records)) throw new Error("このアプリ用のファイルではありません");
-    const names = data.vehicles.map(v => v.name).join("、");
-    if (!confirm(`車両 ${data.vehicles.length} 台（${names}）と\n記録 ${data.records.length} 件を読み込みます。\n\n同じファイルをもう一度読み込んでも、重複はしません（上書きされます）。`)) return;
-    await store.importAll(data);
-    alert("読み込みが終わりました。");
-  } catch (err) { alert("読み込めませんでした：" + err.message); }
-};
 
 $("#fab").onclick = () => openRecord();
 $("#logoutBtn").onclick = () => store.logout();

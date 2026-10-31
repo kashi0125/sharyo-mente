@@ -1,6 +1,6 @@
 // アプリ本体だけをキャッシュ（記録データはFirebaseが同期）
 // index.html を更新したら CACHE の番号を上げると、スマホ側も新しい版に切り替わります
-const CACHE = "sharyo-mente-v7";
+const CACHE = "sharyo-mente-v8";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
