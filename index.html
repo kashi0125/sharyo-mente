@@ -35,6 +35,11 @@ h2{font-size:15px;color:var(--sub);margin:22px 0 8px;font-weight:600}
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:10px}
 .vcard{display:flex;gap:12px;align-items:center;cursor:pointer}
 .vicon{font-size:30px;width:48px;height:48px;display:grid;place-items:center;background:var(--ok-bg);border-radius:12px;flex:none}
+img.vicon{object-fit:cover;padding:0}
+.vphoto{display:block;width:100%;aspect-ratio:16/10;object-fit:cover;border-radius:var(--radius);margin-bottom:12px;background:var(--ok-bg)}
+.photo-box{aspect-ratio:16/10;border:1px dashed var(--line);border-radius:12px;background:var(--bg);display:grid;place-items:center;overflow:hidden;color:var(--sub);font-size:14px}
+.photo-box img{width:100%;height:100%;object-fit:cover}
+.photo-btns{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
 .vmain{flex:1;min-width:0}
 .vname{font-weight:700;font-size:17px}
 .vsub{color:var(--sub);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -102,17 +107,30 @@ textarea{min-height:70px;resize:vertical}
     <label><input type="radio" name="type" value="bike"><span>🏍️ バイク</span></label>
   </div>
   <label>名前（呼び名）</label><input name="name" required placeholder="例：プリウス、CB400">
-  <div class="grid2">
-    <div><label>メーカー・車種</label><input name="model" placeholder="例：トヨタ ZVW30"></div>
-    <div><label>ナンバー</label><input name="plate" placeholder="例：なにわ 300 あ 12-34"></div>
+  <label>写真</label>
+  <div class="photo-box"><img id="vPhotoImg" alt="" hidden><span id="vPhotoNone">写真なし</span></div>
+  <div class="photo-btns">
+    <button type="button" class="btn ghost small" id="vShoot">📷 撮影する</button>
+    <button type="button" class="btn ghost small" id="vPick">🖼️ 選択する</button>
+    <button type="button" class="btn danger small" id="vPhotoDel" hidden>写真を消す</button>
   </div>
-  <label>年式・購入日など</label><input name="year" placeholder="例：2015年式">
+  <input type="file" id="vCam" accept="image/*" capture="environment" hidden>
+  <input type="file" id="vFile" accept="image/*" hidden>
+  <div class="grid2">
+    <div><label>メーカー</label><input name="maker" placeholder="例：ヤマハ"></div>
+    <div><label>車種</label><input name="model" placeholder="例：マジェスティS"></div>
+  </div>
+  <label>ナンバー</label><input name="plate" placeholder="例：なにわ 300 あ 12-34">
+  <div class="grid2">
+    <div><label>年式</label><input name="year" placeholder="例：2015年式"></div>
+    <div><label>購入日</label><input name="purchaseDate" type="date"></div>
+  </div>
   <div class="grid2">
     <div><label>オイル交換の目安（km）</label><input name="oilKm" type="number" inputmode="numeric" min="0"></div>
     <div><label>オイル交換の目安（か月）</label><input name="oilMonths" type="number" inputmode="numeric" min="0"></div>
   </div>
   <p class="hint">オイル交換を記録するとき、ここの目安から「次回」を自動で入れます。</p>
-  <label>車両メモ</label><textarea name="memo" placeholder="オイルの銘柄・量、タイヤサイズ、よく行くお店など"></textarea>
+  <label>メモ</label><textarea name="memo" placeholder="オイルの銘柄・量、タイヤサイズ、よく行くお店など"></textarea>
   <div class="actions">
     <button type="button" class="btn danger small" id="vDel" hidden>削除</button>
     <span class="sp"></span>
@@ -315,6 +333,7 @@ function dueRow(d, showVehicle){
     <span class="badge ${cls}">${label}</span></div>`;
 }
 
+const vIcon = v => v.photo ? `<img class="vicon" src="${esc(v.photo)}" alt="">` : `<div class="vicon">${v.type === "bike" ? "🏍️" : "🚗"}</div>`;
 function homeView(){
   if (!state.vehicles.length) return `<div class="empty"><p>まだ車両がありません。</p><button class="btn" data-addv>＋ 車両を追加</button>
     <p style="margin-top:20px"><button class="btn ghost small" data-import>過去の記録を読み込む</button></p></div>`;
@@ -322,9 +341,9 @@ function homeView(){
   const cards = state.vehicles.slice().sort((a,b) => (a.name||"").localeCompare(b.name||"","ja")).map(v => {
     const ds = dues(v), worst = Math.max(0, ...ds.map(d => d.level)), oil = lastOf(v, "オイル交換");
     return `<div class="card vcard" data-vid="${v.id}">
-      <div class="vicon">${v.type === "bike" ? "🏍️" : "🚗"}</div>
+      ${vIcon(v)}
       <div class="vmain"><div class="vname">${esc(v.name)}</div>
-        <div class="vsub">${esc([v.model, v.plate].filter(Boolean).join("・")) || "&nbsp;"}</div>
+        <div class="vsub">${esc([[v.maker, v.model].filter(Boolean).join(" "), v.plate].filter(Boolean).join("・")) || "&nbsp;"}</div>
         <div class="vsub">前回オイル：${oil ? jpDate(oil.date)+(oil.odo ? "（"+fmt(oil.odo)+" km）" : "") : "記録なし"}</div></div>
       ${worst ? `<span class="badge ${worst===2?"b2":"b1"}">${worst===2?"要交換":"もうすぐ"}</span>` : ""}
     </div>`;
@@ -349,13 +368,16 @@ function vehicleView(v){
   const cats = ["すべて", ...CATS.filter(c => recs.some(r => r.category === c))];
   const shown = state.filter === "すべて" ? recs : recs.filter(r => r.category === state.filter);
   return `<button class="back" id="backBtn">‹ 一覧へ</button>
-    <div class="row" style="margin-bottom:12px"><div class="vicon">${v.type === "bike" ? "🏍️" : "🚗"}</div>
-      <div class="vmain"><div class="vname">${esc(v.name)}</div><div class="vsub">${esc([v.model, v.plate, v.year].filter(Boolean).join("・"))}</div></div>
+    ${v.photo ? `<img class="vphoto" src="${esc(v.photo)}" alt="">` : ""}
+    <div class="row" style="margin-bottom:12px">${v.photo ? "" : vIcon(v)}
+      <div class="vmain"><div class="vname">${esc(v.name)}</div>
+        <div class="vsub">${esc([[v.maker, v.model].filter(Boolean).join(" "), v.plate].filter(Boolean).join("・"))}</div>
+        <div class="vsub">${esc([v.year, v.purchaseDate ? jpDate(v.purchaseDate) + " 購入" : ""].filter(Boolean).join("・"))}</div></div>
       <button class="btn ghost small" id="editV">編集</button></div>
     <div class="stats"><div class="stat"><b>${fmt(total)}</b><span>累計費用（円）</span></div>
       <div class="stat"><b>${recs.length}</b><span>記録</span></div></div>
     ${ds.length ? `<h2>次回の予定</h2><div class="card">${ds.map(d => dueRow(d, false)).join("")}</div>` : ""}
-    ${v.memo ? `<h2>車両メモ</h2><div class="card memo-box">${esc(v.memo)}</div>` : ""}
+    ${v.memo ? `<h2>メモ</h2><div class="card memo-box">${esc(v.memo)}</div>` : ""}
     <h2>履歴</h2>
     ${cats.length > 2 ? `<div class="chips">${cats.map(c => `<button class="chip ${c===state.filter?"on":""}" data-f="${esc(c)}">${esc(c)}</button>`).join("")}</div>` : ""}
     ${shown.length ? shown.map(r => `<div class="card rec" data-rid="${r.id}">
@@ -375,11 +397,20 @@ function bindVehicleView(){
 
 // ====== 車両フォーム ======
 const vForm = $("#vForm"), vDlg = $("#vDlg");
-let editingV = null;
+let editingV = null, vPhoto = "";
+const MAKERS = /^(ヤマハ|ホンダ|スズキ|カワサキ|ダイハツ|トヨタ|日産|ニッサン|マツダ|スバル|三菱|いすゞ|レクサス)[・･\s]*/;
+function setPhoto(url){
+  vPhoto = url || "";
+  $("#vPhotoImg").hidden = !vPhoto; $("#vPhotoNone").hidden = !!vPhoto; $("#vPhotoDel").hidden = !vPhoto;
+  if (vPhoto) $("#vPhotoImg").src = vPhoto; else $("#vPhotoImg").removeAttribute("src");
+}
 function openVehicle(v){
   editingV = v || null; vForm.reset();
   $("#vTitle").textContent = v ? "車両を編集" : "車両を追加"; $("#vDel").hidden = !v;
-  const d = v || { type:"car", oilKm:5000, oilMonths:6 };
+  const d = { ...(v || { type:"car", oilKm:5000, oilMonths:6 }) };
+  // 以前の「メーカー・車種」1枠のデータは、メーカー名を自動で分けて表示
+  if (v && d.maker === undefined && d.model) { const m = d.model.match(MAKERS); if (m) { d.maker = m[1]; d.model = d.model.slice(m[0].length); } }
+  setPhoto(d.photo);
   for (const el of vForm.elements) if (el.name) {
     if (el.type === "radio") el.checked = el.value === (d.type || "car"); else el.value = d[el.name] ?? "";
   }
@@ -391,11 +422,36 @@ vForm.addEventListener("change", e => {
 vForm.onsubmit = async e => {
   e.preventDefault();
   const f = vForm.elements;
-  const obj = { type:f.type.value, name:f.name.value.trim(), model:f.model.value.trim(), plate:f.plate.value.trim(), year:f.year.value.trim(),
+  const obj = { type:f.type.value, name:f.name.value.trim(), maker:f.maker.value.trim(), model:f.model.value.trim(), plate:f.plate.value.trim(),
+    year:f.year.value.trim(), purchaseDate:f.purchaseDate.value || null, photo:vPhoto,
     oilKm:num(f.oilKm.value), oilMonths:num(f.oilMonths.value), memo:f.memo.value };
   if (editingV) obj.id = editingV.id;
   try { await store.save("vehicles", obj); vDlg.close(); } catch(err) { alert("保存できませんでした：" + err.message); }
 };
+// 写真：撮影 or 選択 → 縮小してJPEGにし、車両データに一緒に保存（Firestoreの1件1MBまでに収める）
+async function shrinkImage(file){
+  const url = URL.createObjectURL(file);
+  try {
+    const img = await new Promise((ok, ng) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => ng(new Error("画像を読み込めませんでした")); i.src = url; });
+    let max = 1000, q = 0.75, out;
+    do {
+      const k = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement("canvas");
+      c.width = Math.round(img.naturalWidth * k); c.height = Math.round(img.naturalHeight * k);
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      out = c.toDataURL("image/jpeg", q); max *= 0.8; q = Math.max(0.5, q - 0.1);
+    } while (out.length > 700000 && max > 200);
+    return out;
+  } finally { URL.revokeObjectURL(url); }
+}
+for (const id of ["vCam","vFile"]) $("#"+id).onchange = async e => {
+  const file = e.target.files[0]; e.target.value = ""; if (!file) return;
+  try { setPhoto(await shrinkImage(file)); } catch(err) { alert(err.message); }
+};
+$("#vShoot").onclick = () => $("#vCam").click();
+$("#vPick").onclick = () => $("#vFile").click();
+$("#vPhotoDel").onclick = () => setPhoto("");
+
 $("#vDel").onclick = async () => {
   const n = vehicleRecords(editingV.id).length;
   if (!confirm(`「${editingV.name}」を削除しますか？\n記録 ${n} 件もいっしょに消えます。`)) return;
