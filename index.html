@@ -186,7 +186,7 @@ const firebaseConfig = {
 // 設定が未入力のときはお試しモード（データは保存されません）で動きます
 const DEMO = firebaseConfig.apiKey.startsWith("YOUR");
 
-const CATS = ["オイル交換","エレメント(オイルフィルター)","フラッシング","タイヤ","バッテリー","ブレーキ","チェーン・駆動系","冷却水・その他液類","エアクリーナー・プラグ","点検","車検","修理","その他"];
+const CATS = ["オイル交換","エレメント(オイルフィルター)交換","フラッシング","タイヤ","バッテリー","ブレーキ","チェーン・駆動系","冷却水・その他液類","エアクリーナー・プラグ","点検","車検","修理","その他"];
 const SOON_DAYS = 30;
 
 const $ = s => document.querySelector(s);
@@ -200,7 +200,7 @@ const jpDate = ds => ds ? ds.replace(/^(\d+)-0?(\d+)-0?(\d+)$/, "$1/$2/$3") : ""
 
 // 以前の種類名を新しい名前にそろえる（保存済みのデータもそのまま新しい名前で表示）
 function normRec(r){
-  if (r.category === "オイルフィルター") r.category = "エレメント(オイルフィルター)";
+  if (r.category === "オイルフィルター" || r.category === "エレメント(オイルフィルター)") r.category = "エレメント(オイルフィルター)交換";
   if (r.category === "その他" && r.title === "フラッシング") r.category = "フラッシング";
   return r;
 }
@@ -481,7 +481,7 @@ function autoNext(){
   let km = null, mo = null;
   switch (f.category.value) {
     case "オイル交換": km = v?.oilKm; mo = v?.oilMonths; break;
-    case "エレメント(オイルフィルター)": km = v?.oilKm ? v.oilKm*2 : null; mo = v?.oilMonths ? v.oilMonths*2 : null; break;
+    case "エレメント(オイルフィルター)交換": km = v?.oilKm ? v.oilKm*2 : null; mo = v?.oilMonths ? v.oilMonths*2 : null; break;
     case "点検": mo = 12; break;
     case "車検": mo = 24; break;
   }
