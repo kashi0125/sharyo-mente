@@ -1,6 +1,6 @@
 // アプリ本体だけをキャッシュ（記録データはFirebaseが同期）
 // index.html を更新したら CACHE の番号を上げると、スマホ側も新しい版に切り替わります
-const CACHE = "sharyo-mente-v9";
+const CACHE = "sharyo-mente-v10";
 const FILES = ["./", "./index.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png", "./apple-touch-icon.png"];
 
 self.addEventListener("install", e => {
@@ -8,7 +8,7 @@ self.addEventListener("install", e => {
   self.skipWaiting();
 });
 self.addEventListener("activate", e => {
-  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))));
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith("sharyo-mente-") && k !== CACHE).map(k => caches.delete(k)))));
   self.clients.claim();
 });
 // 同じサイト内のファイルは「ネット優先、つながらなければキャッシュ」
